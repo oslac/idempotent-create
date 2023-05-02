@@ -1,0 +1,26 @@
+---
+source: tests/api/get_users.rs
+expression: "&actual_body"
+---
+[
+  {
+    "email": "first@email",
+    "id": 1
+  },
+  {
+    "email": "second@email",
+    "id": 2
+  },
+  {
+    "email": "third@email",
+    "id": 3
+  },
+  {
+    "email": "fourth@email",
+    "id": 4
+  },
+  {
+    "email": "fifth@email",
+    "id": 5
+  }
+]

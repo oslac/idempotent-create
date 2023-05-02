@@ -15,13 +15,12 @@ type Users = Json<Vec<User>>;
 
 #[tracing::instrument(name = "Get All Users", skip(service))]
 pub async fn get_users(service: Extension<SharedService>) -> Result<Users, ListUsersError> {
-    let db = service.read().await;
+    let service = service.read().await;
     tracing::info!("Attempting to get all users");
-    let users = db.list().await.context("Failed to get all users")?;
+    let mut users = service.list().await.context("Failed to get all users")?;
+    users.sort();
     tracing::info!("All users fetched");
-    let res = Json(users);
-    tracing::info!("{:#?}", res);
-    Ok(res)
+    Ok(Json(users))
 }
 
 #[derive(thiserror::Error)]

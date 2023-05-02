@@ -8,7 +8,13 @@ pub struct NewUser {
     pub email: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+impl NewUser {
+    pub fn new(email: String) -> Self {
+        Self { email }
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, PartialEq, Eq, PartialOrd, Ord)]
 pub struct User {
     pub id: u64,
     pub email: String,

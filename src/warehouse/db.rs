@@ -12,12 +12,12 @@ type UserId = u64;
 pub struct UserRepository(HashMap<UserId, User>);
 
 impl UserRepository {
-    pub fn default() -> Self {
+    pub fn new() -> Self {
         Self(HashMap::default())
     }
 
-    /// Creates a new [User] from [NewUser].
-    pub async fn create(&mut self, new_user: &NewUser) -> Result<User, UserRepoError> {
+    /// Create a new [User] from [NewUser].
+    pub fn create(&mut self, new_user: &NewUser) -> Result<User, UserRepoError> {
         self.email_is_available(&new_user.email)?;
         tracing::info!("Email Is Free");
         let new_id = self.random_id();
@@ -28,14 +28,14 @@ impl UserRepository {
         Ok(new_user)
     }
 
-    /// Lists all users.
-    pub async fn list(&self) -> Result<Vec<User>, UserRepoError> {
+    /// Get all users.
+    pub fn list(&self) -> Result<Vec<User>, UserRepoError> {
         let users = self.0.values().cloned().collect();
         Ok(users)
     }
 
-    /// Returns [User] with id ``id``; *otherwise* ``NotFound``.
-    pub async fn get(&self, user_id: u64) -> Result<User, UserRepoError> {
+    /// Returns [User] with id ``id``; *otherwise* `NotFound`.
+    pub fn get(&self, user_id: u64) -> Result<User, UserRepoError> {
         self.0.get(&user_id).cloned().ok_or(UserRepoError::UserNotFound(user_id))
     }
 

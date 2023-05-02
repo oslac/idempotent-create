@@ -1,0 +1,5 @@
+---
+source: tests/api/get_users.rs
+expression: "&actual_body"
+---
+[]

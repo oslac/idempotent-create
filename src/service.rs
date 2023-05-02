@@ -26,7 +26,7 @@ impl Service {
     pub async fn create(&mut self, new_user: &NewUser) -> Result<User, ServiceError> {
         Self::validate_email(&new_user.email)?;
         tracing::info!("Email Validated");
-        let user = self.db.create(new_user).await.map_err(ServiceError::EmailTaken)?;
+        let user = self.db.create(new_user).map_err(ServiceError::EmailTaken)?;
         tracing::info!("User Created");
         Ok(user)
     }
@@ -37,14 +37,14 @@ impl Service {
             .parse::<u64>()
             .map_err(|e| ServiceError::ValidationError(format!("{e} is not a valid user id")))?;
         tracing::info!("ID Validated");
-        let user = self.db.get(id).await.map_err(ServiceError::UserNotFound)?;
+        let user = self.db.get(id).map_err(ServiceError::UserNotFound)?;
         tracing::info!("User {} Fetched", user.id);
         Ok(user)
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(skip(self))]
     pub async fn list(&self) -> Result<Vec<User>, ServiceError> {
-        let users = self.db.list().await.context("Failed to Get All Users")?;
+        let users = self.db.list().context("Failed to Get All Users")?;
         tracing::info!("Users Fetched");
         Ok(users)
     }

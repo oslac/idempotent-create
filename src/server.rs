@@ -1,7 +1,6 @@
 use crate::middleware::cache;
 use crate::middleware::cache::handle::CacheHandle;
 use crate::middleware::cache::manager::CacheManager;
-use crate::obs;
 use crate::routes;
 use crate::service::Service;
 use crate::service::SharedService;
@@ -15,11 +14,15 @@ use axum::Extension;
 use axum::Router;
 use axum::Server;
 use std::net::SocketAddr;
+use std::net::TcpListener;
 use std::sync::Arc;
 use tokio::sync::mpsc;
 use tokio::sync::RwLock;
 use tower::ServiceBuilder;
 use tower_http::trace::TraceLayer;
+
+/// In a real implementation, this would be a connection pool:
+type ConnectionPool = UserRepository;
 
 pub struct UserApi {
     pub addr: SocketAddr,
@@ -29,11 +32,8 @@ pub struct UserApi {
 
 impl UserApi {
     /// Initialize a new [UserApi].
-    /// * Starts tracing.
-    /// * Configures [Router]
-    pub fn new(addr: SocketAddr) -> Self {
-        obs::init();
-        tracing::info!(".. Configuring the API");
+    pub fn new(addr: TcpListener, pool: ConnectionPool) -> Self {
+        tracing::debug!(".. Configuring the API");
 
         let (cache_handle, cache_manager) = {
             let (sender, receiver) = mpsc::channel(8);
@@ -43,18 +43,17 @@ impl UserApi {
         };
 
         tracing::info!(".. the API was configured successfully");
-        let api = Self::router(cache_handle);
+        let api = Self::router(cache_handle, pool);
+        let addr = addr.local_addr().expect("Port was Bound");
         Self { addr, api, cache_manager }
     }
 
-    pub fn router(cache_handle: CacheHandle) -> Router {
+    pub fn router(cache_handle: CacheHandle, pool: UserRepository) -> Router {
         let tracing = TraceLayer::new_for_http();
-
-        let db = UserRepository::default();
-        let user_service: SharedService = Arc::new(RwLock::new(Service::new(db)));
+        let user_service: SharedService = Arc::new(RwLock::new(Service::new(pool)));
         let service = ServiceBuilder::new()
             .layer(tracing)
-            .layer(Extension(Arc::new(cache_handle)))
+            .layer(Extension(cache_handle))
             .layer(Extension(user_service));
 
         let post_user = routes::create_user.layer(middleware::from_fn(cache::process));
@@ -79,9 +78,5 @@ impl UserApi {
 
         let api = self.api.into_make_service();
         server.serve(api).await.context("Server Creation Failed")
-    }
-
-    pub fn api(&self) -> Router {
-        self.api.clone()
     }
 }
