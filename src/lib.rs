@@ -7,7 +7,7 @@ mod ikey;
 mod middleware;
 mod obs;
 mod routes;
-mod server;
+pub mod server;
 mod service;
 mod user;
 mod warehouse;

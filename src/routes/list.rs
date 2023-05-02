@@ -19,7 +19,9 @@ pub async fn get_users(service: Extension<SharedService>) -> Result<Users, ListU
     tracing::info!("Attempting to get all users");
     let users = db.list().await.context("Failed to get all users")?;
     tracing::info!("All users fetched");
-    Ok(Json(users))
+    let res = Json(users);
+    tracing::info!("{:#?}", res);
+    Ok(res)
 }
 
 #[derive(thiserror::Error)]

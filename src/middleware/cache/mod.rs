@@ -23,13 +23,13 @@ pub mod msg;
 
 type ErrorRes = Response<BoxBody>;
 
-/// Middleware for ``POST /users``.
+/// Middleware for `POST /users`.
 ///
-/// If `Idempotency-Key` header was provided, the `req` is further processed;
-/// *otherwise* this layer short-circuits.
+/// When `Idempotency-Key` header is provided, the `req` is further
+/// processed; *otherwise* the layer short-circuits.
 #[tracing::instrument(name = "Checking for Cached Response", skip(cache, req, next))]
-pub async fn response_cache(
-    cache: Extension<CacheHandle>,
+pub async fn process(
+    Extension(cache): Extension<CacheHandle>,
     req: Request<Body>,
     next: Next<Body>,
 ) -> Result<Response, ErrorRes> {
@@ -39,59 +39,54 @@ pub async fn response_cache(
     };
 
     tracing::info!("Request with Key {:#?}", &key);
-    process_req(cache, key, req, next).await
+    process_with_key(&cache, key, req, next).await
 }
 
-/// Processes a `req` with a [IKey] in the header.
+/// Processes a `req` with an [IKey] in the header.
 ///
-/// If there is a cache hit for the key, returns the cached response;
+/// When there is a cache hit for `key`, returns the cached response;
 /// *otherwise* processes the uncached request.
-async fn process_req(
-    Extension(cache): Extension<CacheHandle>,
+async fn process_with_key(
+    cache: &CacheHandle,
     key: &IKey,
     req: Request<Body>,
     next: Next<Body>,
 ) -> Result<Response, ErrorRes> {
     if let Some(cached) = cache.get(key).await {
-        tracing::warn!("Cache Hit with ({}, {:#?})", key, cached);
+        tracing::warn!("Cache hit: ({key}, {cached})");
         return Ok((StatusCode::CREATED, Json(cached.user)).into_response());
     };
 
-    tracing::warn!("Cache Miss with {}", key);
+    tracing::warn!("Cache miss with {key}");
     process_uncached(cache, key, req, next).await
 }
 
-/// Processes an uncached request that came with ``Idempotency-Key`` header
-/// attached to it.
+/// Processes an uncached request with an `Idempotency-Key` header.
 async fn process_uncached(
-    cache: CacheHandle,
+    cache: &CacheHandle,
     key: &IKey,
     req: Request<Body>,
-    create_user: Next<Body>,
+    layers: Next<Body>,
 ) -> Result<Response, ErrorRes> {
-    let res = create_user.run(req).await;
-    let (head, body) = res.into_parts();
-    let bytes = body::to_bytes(body).await.context("Failed to convert body to bytes").unwrap();
-    let status = head.status;
-    let user: User = DeserSlice(&bytes).map_err(|error| {
-        tracing::warn!("Deserialization Failure: {:#?}", error);
-        // We did not get back a User, but something-else.
-        // Return that something-else without touching things:
-        Response::from_parts(head, boxed(Body::from(bytes)))
-    })?;
-
-    tracing::info!("Uncached request processed");
-    process_new_user(status, user, cache, key).await
-}
-
-async fn process_new_user(
-    status: StatusCode,
-    user: User,
-    cache: CacheHandle,
-    key: &IKey,
-) -> Result<Response, ErrorRes> {
-    let res = CachedResponse { status, user };
-    cache.set(key, &res).await;
-    tracing::info!("Updated Cache Miss for Key {} with {:#?}", &key, &res.user);
-    Ok((res.status, Json(res.user)).into_response())
+    // Run rest of the middleware layers, all the way down to the handler.
+    let response = layers.run(req).await;
+    // After the handler has run, only then upsert the cache
+    let (head, body) = response.into_parts();
+    let body = body::to_bytes(body).await.context("Failed to convert body to bytes").unwrap();
+    match DeserSlice::<User>(&body) {
+        Ok(new_user) => {
+            tracing::info!("Uncached Request Proceessed");
+            let res = CachedResponse { status: head.status, user: new_user };
+            cache.set(key, &res).await.context("Cache Update Failed").expect("Cache Is Available");
+            tracing::warn!("Cache Miss Updated: {key} with {}", res.user);
+            Ok((res.status, Json(res.user)).into_response())
+        }
+        Err(error_from_layer) => {
+            tracing::warn!("Deserialization Failure: {:#?}", error_from_layer);
+            // Layer did not return `User`, but something-else.
+            // Return that something-else without touching things.
+            // This can be cached too.
+            Err(Response::from_parts(head, boxed(Body::from(body))))
+        }
+    }
 }

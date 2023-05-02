@@ -6,6 +6,7 @@ use axum::http::StatusCode;
 use color_eyre::Report;
 use std::collections::HashMap;
 use std::fmt::Debug;
+use std::fmt::Display;
 
 /// A response cache, mapping client provided [IKey] to [CachedResponse].
 #[derive(Clone, Debug)]
@@ -38,8 +39,8 @@ impl Cache {
         Ok(())
     }
 
-    /// Given an [IKey], either returns a [CachedResponse] or [CacheError] on
-    /// miss.
+    /// Given an [IKey], either returns a [CachedResponse] on a cache hit, or
+    /// [CacheError] on miss.
     pub async fn get(&self, key: &IKey) -> Result<CachedResponse, CacheError> {
         let res = self.0.get(key).ok_or(CacheError::CacheMiss(key.to_string()))?;
         Ok(res.clone())
@@ -49,5 +50,11 @@ impl Cache {
 impl Debug for CacheError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         get_error_cause(self, f)
+    }
+}
+
+impl Display for CachedResponse {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Cached ({}, {})", self.status, self.user.id)
     }
 }

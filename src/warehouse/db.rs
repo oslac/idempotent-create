@@ -34,7 +34,7 @@ impl UserRepository {
         Ok(users)
     }
 
-    /// Returns [User] with id ``id``, or ``NotFound``.
+    /// Returns [User] with id ``id``; *otherwise* ``NotFound``.
     pub async fn get(&self, user_id: u64) -> Result<User, UserRepoError> {
         self.0.get(&user_id).cloned().ok_or(UserRepoError::UserNotFound(user_id))
     }
@@ -53,12 +53,10 @@ impl UserRepository {
 
 #[derive(thiserror::Error)]
 pub enum UserRepoError {
-    // Logic Errors
     #[error("User {0} Not Found")]
     UserNotFound(u64),
     #[error("Email {0} Is Taken")]
     EmailTaken(String),
-    // Internal Errors
     #[error(transparent)]
     Internal(#[from] Report),
 }
