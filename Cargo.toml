@@ -40,6 +40,8 @@ thiserror = "1.0.40"
 
 [dev-dependencies]
 insta = { version = "1.29.0", features = ["yaml", "json"] }
+mime = "0.3.17"
+tokio = "1.28.0"
 
 [profile.dev.package.insta]
 opt-level = 3

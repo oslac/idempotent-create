@@ -1,0 +1,8 @@
+---
+source: tests/api/create_user.rs
+expression: "&actual_body"
+---
+{
+  "email": "first@email.com",
+  "id": 1
+}

@@ -53,9 +53,9 @@ impl UserRepository {
 
 #[derive(thiserror::Error)]
 pub enum UserRepoError {
-    #[error("User {0} Not Found")]
+    #[error("{0}")]
     UserNotFound(u64),
-    #[error("Email {0} Is Taken")]
+    #[error("{0}")]
     EmailTaken(String),
     #[error(transparent)]
     Internal(#[from] Report),

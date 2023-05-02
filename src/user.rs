@@ -3,7 +3,7 @@ use std::fmt::Display;
 use serde::Deserialize;
 use serde::Serialize;
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Serialize)]
 pub struct NewUser {
     pub email: String,
 }

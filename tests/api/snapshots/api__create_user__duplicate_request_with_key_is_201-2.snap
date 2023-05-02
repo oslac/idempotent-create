@@ -1,0 +1,8 @@
+---
+source: tests/api/create_user.rs
+expression: "&duplicate"
+---
+{
+  "email": "email@mail",
+  "id": 1
+}

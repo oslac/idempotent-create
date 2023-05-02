@@ -1,0 +1,7 @@
+---
+source: tests/api/create_user.rs
+expression: "&duplicate"
+---
+{
+  "error": "Email first@email.com Is In Use Already"
+}

@@ -3,4 +3,7 @@
 mod get_users;
 
 #[cfg(test)]
+mod create_user;
+
+#[cfg(test)]
 mod test_app;

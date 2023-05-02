@@ -372,6 +372,7 @@ dependencies = [
  "color-eyre",
  "hyper",
  "insta",
+ "mime",
  "serde",
  "serde_json",
  "thiserror",

@@ -1,9 +1,14 @@
 use axum::Router;
+use hyper::header;
+use hyper::Body;
+use hyper::Method;
+use hyper::Request;
 use lib::obs;
 use lib::obs::get_sub;
 use lib::server::UserApi;
 use lib::user::NewUser;
 use lib::warehouse::UserRepository;
+use serde_json::json;
 use std::net::SocketAddr;
 use std::net::TcpListener;
 use std::sync::LazyLock;
@@ -56,5 +61,14 @@ impl TestApp {
 
     pub fn router(&self) -> Router {
         self.app.api.clone()
+    }
+
+    pub fn create_new_user(new_user: NewUser) -> Request<Body> {
+        Request::builder()
+            .method(Method::POST)
+            .header(header::CONTENT_TYPE, mime::APPLICATION_JSON.as_ref())
+            .uri("/users")
+            .body(Body::from(serde_json::to_vec(&json!(new_user)).unwrap()))
+            .unwrap()
     }
 }
