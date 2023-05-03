@@ -9,7 +9,7 @@ use std::fmt::Debug;
 use std::fmt::Display;
 
 /// A response cache, mapping client provided [IKey] to [CachedResponse].
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct Cache(HashMap<IKey, CachedResponse>);
 
 #[derive(Clone, Debug)]

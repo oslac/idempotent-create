@@ -1,7 +1,7 @@
 use color_eyre::Report;
 use server::UserApi;
-use std::net::SocketAddr;
-use std::net::TcpListener;
+use std::net::Ipv4Addr;
+use tokio::net::TcpListener;
 use warehouse::UserRepository;
 
 mod error;
@@ -19,8 +19,8 @@ pub type ServerResult<T = ()> = Result<T, Report>;
 pub async fn try_main() -> ServerResult {
     let sub = obs::get_sub();
     obs::init_with(sub);
-    let addr = SocketAddr::from(([127, 0, 0, 1], 0));
-    let listener = TcpListener::bind(addr).expect("Bind Random Port");
+    let socket = (Ipv4Addr::new(127, 0, 0, 1), 0);
+    let listener = TcpListener::bind(socket).await.expect("Socket is Bound");
     let addr = listener.local_addr();
     tracing::info!("Bound: {:#?}", addr);
     let pool = UserRepository::new();

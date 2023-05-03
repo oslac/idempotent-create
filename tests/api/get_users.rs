@@ -1,18 +1,16 @@
 use crate::test_app::TestApp;
+use lib::warehouse::UserRepository;
 
 use hyper::body::to_bytes as BodyToBytes;
-use hyper::Body;
-use hyper::Request;
 use hyper::StatusCode;
-use lib::warehouse::UserRepository;
 use serde_json::Value;
 use tower::ServiceExt;
 
 #[tokio::test]
-async fn empty_users() {
+async fn without_any_users() {
     // I. Arrange
-    let app = TestApp::new(UserRepository::new());
-    let req = Request::builder().uri("/users").body(Body::empty()).unwrap();
+    let app = TestApp::new(UserRepository::new()).await;
+    let req = app.get_users();
 
     // II. Act
     let response = app.router().oneshot(req).await.unwrap();
@@ -32,11 +30,11 @@ async fn empty_users() {
 }
 
 #[tokio::test]
-async fn lists_all_users() {
+async fn with_some_users() {
     // 1. Arrange
     let data = TestApp::init_repo_data();
-    let app = TestApp::new(data);
-    let req = Request::builder().uri("/users").body(Body::empty()).unwrap();
+    let app = TestApp::new(data).await;
+    let req = app.get_users();
 
     // II. Act
     let response = app.router().oneshot(req).await.unwrap();

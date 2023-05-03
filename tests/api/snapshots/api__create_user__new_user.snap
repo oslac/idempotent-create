@@ -3,6 +3,6 @@ source: tests/api/create_user.rs
 expression: "&actual_body"
 ---
 {
-  "email": "first@email.com",
+  "email": "first@email",
   "id": 1
 }

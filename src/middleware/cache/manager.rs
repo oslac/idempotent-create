@@ -29,14 +29,14 @@ impl CacheManager {
                     tracing::info!("Processing GET");
                     let cached_response = self.cache.get(&key).await.ok();
                     tracing::warn!("GET executed");
-                    ret.send(cached_response);
+                    ret.send(cached_response).expect("Graceful Shutdown");
                 }
 
                 Set { key, val, ret } => {
                     tracing::info!("Processing SET");
                     let res = self.cache.set(&key, &val).await;
                     tracing::warn!("SET executed");
-                    ret.send(res);
+                    ret.send(res).expect("Graceful Shutdown");
                 }
             }
         }
