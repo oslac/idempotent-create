@@ -3,6 +3,7 @@ use super::msg::Msg;
 use crate::warehouse::Cache;
 
 use tokio::sync::mpsc::Receiver;
+use tracing::instrument;
 
 /// Processes the received [Msg]s from the
 /// [CacheHandle](crate::middleware::cache::handle::CacheHandle).
@@ -18,24 +19,22 @@ impl CacheManager {
         Self { mailbox, cache }
     }
 
-    /// Processes messages from the channel until all senders are dropped
-    #[tracing::instrument(name = "Running Cache")]
+    /// Processes messages from the channel until all senders are dropped.
+    #[instrument(name = "Cache Manager", skip(self))]
     pub async fn run(&mut self) {
         while let Some(mail) = self.mailbox.recv().await {
-            tracing::info!("Mail {mail} Received");
+            tracing::info!("Received Request: {}", mail);
             use Msg::*;
             match mail {
                 Get { key, ret } => {
-                    tracing::info!("Processing GET");
                     let cached_response = self.cache.get(&key).await.ok();
-                    tracing::warn!("GET executed");
+                    tracing::warn!("Response Fetched");
                     ret.send(cached_response).expect("Graceful Shutdown");
                 }
 
                 Set { key, val, ret } => {
-                    tracing::info!("Processing SET");
                     let res = self.cache.set(&key, &val).await;
-                    tracing::warn!("SET executed");
+                    tracing::warn!("Response Updated");
                     ret.send(res).expect("Graceful Shutdown");
                 }
             }

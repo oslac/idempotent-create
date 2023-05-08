@@ -10,16 +10,17 @@ use axum::Json;
 use color_eyre::eyre::Context;
 use hyper::StatusCode;
 use std::fmt::Debug;
+use tracing::instrument;
 
 type Users = Json<Vec<User>>;
 
-#[tracing::instrument(name = "Get All Users", skip(service))]
+#[instrument(name = "Get All Users", skip(service))]
 pub async fn get_users(service: Extension<SharedService>) -> Result<Users, ListUsersError> {
+    tracing::info!("Fetching All Users");
     let service = service.read().await;
-    tracing::info!("Attempting to get all users");
     let mut users = service.list().await.context("Failed to get all users")?;
     users.sort();
-    tracing::info!("All users fetched");
+    tracing::info!("All Users Fetched");
     Ok(Json(users))
 }
 

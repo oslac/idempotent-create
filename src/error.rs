@@ -17,7 +17,7 @@ pub fn get_error_cause(e: &impl Error, f: &mut Formatter<'_>) -> std::fmt::Resul
     writeln!(f, "{}\n", e)?;
     let mut current = e.source();
     while let Some(cause) = current {
-        writeln!(f, "Caused by:\n\t{}", cause)?;
+        writeln!(f, "Caused by:\n  {}", cause)?;
         current = cause.source();
     }
     Ok(())

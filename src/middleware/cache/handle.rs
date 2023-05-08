@@ -7,49 +7,47 @@ use color_eyre::eyre::Context;
 use tokio::sync::mpsc::Sender;
 use tokio::sync::oneshot;
 use tokio::sync::oneshot::channel;
+use tracing::instrument;
 
 /// A handler to *command* and *query* the
 /// [CacheManager](crate::middleware::cache::manager::CacheManager).
 #[derive(Debug, Clone)]
 pub struct CacheHandle {
-    sender: Sender<Msg>,
+    mailman: Sender<Msg>,
 }
 
 impl CacheHandle {
-    pub fn new(sender: Sender<Msg>) -> Self {
-        Self { sender }
+    pub fn new(mailman: Sender<Msg>) -> Self {
+        Self { mailman }
     }
 
-    /// Given [IKey] exists in the cache, returns a [CachedResponse];
+    /// Given `key` exists in a cache, returns some [CachedResponse];
     /// *otherwise* returns `None`.
-    #[tracing::instrument(name = "Check Cache for Response")]
+    #[instrument(name = "Get a Response", skip(self), fields(key=key.0))]
     pub async fn get(&self, key: &IKey) -> Option<CachedResponse> {
         let key = key.clone();
         let (ret, res) = channel();
         let msg = Msg::Get { key, ret };
 
-        self.sender.send(msg).await.context("Receiver Was Dropped").expect("Graceful Shutdown");
-        tracing::info!("Get Sent");
+        self.mailman.send(msg).await.context("Receiver Was Dropped").unwrap();
+        let response = res.await.context("Failed to Receive Response").unwrap();
 
-        let res = res.await.context("Failed to Receive Response").expect("Graceful Shutdown");
-        tracing::info!("Get Response Received");
-        res
+        tracing::info!("Response received");
+        response
     }
 
     /// Maps `key` to `val` in [Cache](crate::warehouse::Cache);
     /// *otherwise* returns a [CacheError].
-    #[tracing::instrument]
+    #[instrument(name = "Update a Response", fields(key = key.0), skip(self, key, val))]
     pub async fn set(&self, key: &IKey, val: &CachedResponse) -> Result<(), CacheError> {
         let key = key.clone();
         let val = val.clone();
         let (ret, res) = oneshot::channel();
         let msg = Msg::Set { key, val, ret };
 
-        self.sender.send(msg).await.context("Receiver Was Dropped").expect("Graceful Shutdown");
-        tracing::info!("Set Sent");
-
-        let res = res.await.context("Failed to Receive Response").expect("Graceful Shutdown");
-        tracing::info!("Set Response Received");
+        self.mailman.send(msg).await.context("Receiver Was Dropped")?;
+        let res = res.await.context("Failed to Receive Response")?;
+        tracing::info!("Update Received");
         res
     }
 }

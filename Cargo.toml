@@ -11,7 +11,6 @@ path = "src/main.rs"
 name = "lib"
 path = "src/lib.rs"
 
-
 [dependencies]
 
 # Web Framework
@@ -26,17 +25,18 @@ tower = { version = "0.4.13", features = ["full"] }
 tower-http = { version = "0.4.0", features = ["trace"] }
 
 # Data De & Ser
-serde = { version = "1.0.160", features = ["derive"] }
+serde = { version = "1.0.162", features = ["derive"] }
 serde_json = "1.0.96"
 
 # Tracing
 tracing = "0.1.37"
-tracing-subscriber = { version = "0.3.17", features = ["env-filter", "json"] }
+tracing-subscriber = { version = "0.3.17", features = ["env-filter", "json", "ansi"] }
 
 # Errors
 color-eyre = "0.6.2"
 tracing-error = "0.2.0"
 thiserror = "1.0.40"
+tracing-tree = "0.2.3"
 
 [dev-dependencies]
 insta = { version = "1.29.0", features = ["yaml", "json"] }

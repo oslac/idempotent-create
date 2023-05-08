@@ -9,64 +9,65 @@ use crate::user::User;
 use axum::response::IntoResponse;
 use axum::Extension;
 use axum::Json;
-use color_eyre::eyre;
 use hyper::StatusCode;
 use std::fmt::Debug;
+use tracing::instrument;
 
+#[instrument(
+    name = "Registering New User",
+    fields(email = new_user.email),
+    skip(service, new_user))]
 pub async fn create_user(
     service: Extension<SharedService>,
     Json(new_user): Json<NewUser>,
 ) -> Result<Json<User>, CreateUserError> {
     let mut service = service.write().await;
-    let res = service.create(&new_user).await;
+    let user = service.create(&new_user);
 
-    match res {
-        Ok(new_user) => {
-            tracing::info!("New User Created");
-            Ok(Json(new_user))
-        }
-        Err(error) => {
-            tracing::info!("{:#?}", error);
-            Err(error.into())
+    match user {
+        Ok(user) => Ok(Json(user)),
+        Err(e) => {
+            let e = match e {
+                ServiceError::EmailTaken(_) => CreateUserError::DuplicateEmail(e),
+                ServiceError::ValidationError(_) => CreateUserError::Validation(e),
+                ServiceError::Internal(e) => CreateUserError::Internal(e),
+                _otherwise => unreachable!(),
+            };
+            tracing::warn!("Error while registering new user: {:#?}", e);
+            Err(e)
         }
     }
 }
 
 #[derive(thiserror::Error)]
 pub enum CreateUserError {
-    /// Email  might be taken.
-    #[error("{0}")]
-    EmailTaken(#[source] ServiceError),
-    /// Email might be malformed
-    #[error("{0}")]
+    /// Duplicate email. The email was registered previously.
+    #[error("Email Already In Use")]
+    DuplicateEmail(#[source] ServiceError),
+
+    /// Email might be gibberish.
+    #[error("Validation error while processing data: {0}")]
     Validation(#[source] ServiceError),
-    /// Internal (!Business & !Use-Case Errors)
+
+    /// !Business & !Use-Case Errors
     #[error(transparent)]
     Internal(#[from] OpaqueError),
 }
 
-impl IntoResponse for CreateUserError {
-    fn into_response(self) -> axum::response::Response {
-        use CreateUserError::*;
-        let (status, error) = match self {
-            EmailTaken(e) => (StatusCode::CONFLICT, e.to_string()),
-            Validation(e) => (StatusCode::BAD_REQUEST, e.to_string()),
-            Internal(e) => (StatusCode::INTERNAL_SERVER_ERROR, e.to_string()),
-        };
-
-        let body = Json(ErrorBody { error });
-        (status, body).into_response()
+impl CreateUserError {
+    fn status_code(&self) -> StatusCode {
+        match self {
+            Self::DuplicateEmail(_) => StatusCode::CONFLICT,
+            Self::Validation(_) => StatusCode::BAD_REQUEST,
+            Self::Internal(_) => StatusCode::INTERNAL_SERVER_ERROR,
+        }
     }
 }
 
-impl From<ServiceError> for CreateUserError {
-    fn from(value: ServiceError) -> Self {
-        match value {
-            ServiceError::EmailTaken(_) => Self::EmailTaken(value),
-            ServiceError::ValidationError(_) => Self::Validation(value),
-            ServiceError::UnexpectedError(internal) => Self::Internal(eyre::eyre!(internal)),
-            _ => unreachable!(),
-        }
+impl IntoResponse for CreateUserError {
+    fn into_response(self) -> axum::response::Response {
+        let (status, error) = (self.status_code(), self.to_string());
+        (status, Json(ErrorBody { error })).into_response()
     }
 }
 

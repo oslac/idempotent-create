@@ -33,7 +33,7 @@ pub struct UserApi {
 impl UserApi {
     /// Initialize a new [UserApi].
     pub fn new(addr: TcpListener, pool: ConnectionPool) -> Self {
-        tracing::debug!(".. Configuring the API");
+        tracing::debug!("... Configuring the Users API");
 
         let (cache_handle, cache_manager) = {
             let (sender, receiver) = mpsc::channel(8);
@@ -42,9 +42,9 @@ impl UserApi {
             (cache_handle, cache_manager)
         };
 
-        tracing::info!(".. the API was configured successfully");
+        tracing::info!("User API was configured successfully");
         let api = Self::router(cache_handle, pool);
-        let addr = addr.local_addr().expect("Port was Bound");
+        let addr = addr.local_addr().expect("Port is Bound");
         Self { addr, api, cache_manager }
     }
 
@@ -71,10 +71,10 @@ impl UserApi {
 
         let mut mngr = self.cache_manager;
         tokio::spawn(async move { mngr.run().await });
-        tracing::warn!("CacheManager Spawned");
+        tracing::debug!("CacheManager Spawned");
 
         let server = Server::bind(&self.addr);
-        tracing::info!(".. Serving API @ {}", self.addr);
+        tracing::info!("Serving @ {:#?}", self.addr);
 
         let api = self.api.into_make_service();
         server.serve(api).await.context("Server Creation Failed")

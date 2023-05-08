@@ -9,9 +9,11 @@ use color_eyre::eyre::Context;
 use std::fmt::Debug;
 use std::sync::Arc;
 use tokio::sync::RwLock;
+use tracing::instrument;
 
 pub type SharedService = Arc<RwLock<Service>>;
 
+// FIXME fake class-like thing
 #[derive(Clone, Debug)]
 pub struct Service {
     pub db: UserRepository,
@@ -22,27 +24,30 @@ impl Service {
         Self { db }
     }
 
-    #[tracing::instrument]
-    pub async fn create(&mut self, new_user: &NewUser) -> Result<User, ServiceError> {
+    #[instrument(name = "Create New User", skip(self, new_user))]
+    pub fn create(&mut self, new_user: &NewUser) -> Result<User, ServiceError> {
         Self::validate_email(&new_user.email)?;
-        tracing::info!("Email Validated");
-        let user = self.db.create(new_user).map_err(ServiceError::EmailTaken)?;
-        tracing::info!("User Created");
+        tracing::info!("User Email is Valid");
+        let user = self.db.create(new_user).map_err(|e| {
+            tracing::error!("{:#?}", e);
+            ServiceError::EmailTaken(e)
+        })?;
+        tracing::info!("New User Created");
         Ok(user)
     }
 
-    #[tracing::instrument]
+    #[tracing::instrument(name = "Get User", skip(self))]
     pub async fn get(&self, id: &str) -> Result<User, ServiceError> {
         let id = id
             .parse::<u64>()
             .map_err(|e| ServiceError::ValidationError(format!("{e} is not a valid user id")))?;
-        tracing::info!("ID Validated");
+        tracing::info!("User ID Validated Successfully");
         let user = self.db.get(id).map_err(ServiceError::UserNotFound)?;
         tracing::info!("User {} Fetched", user.id);
         Ok(user)
     }
 
-    #[tracing::instrument(skip(self))]
+    #[tracing::instrument(name = "Get All Users", skip(self))]
     pub async fn list(&self) -> Result<Vec<User>, ServiceError> {
         let users = self.db.list().context("Failed to Get All Users")?;
         tracing::info!("Users Fetched");
@@ -52,6 +57,7 @@ impl Service {
     fn validate_email(email: &str) -> Result<(), ServiceError> {
         let invalid_email = email.is_empty() || email.len() < 5;
         if invalid_email {
+            tracing::error!("Invalid Email {:#?}", email);
             return Err(ServiceError::ValidationError("Email Empty".to_string()));
         }
 
@@ -61,22 +67,20 @@ impl Service {
 
 #[derive(thiserror::Error)]
 pub enum ServiceError {
-    // User was not found:
-    #[error("User {0} Not Found")]
-    UserNotFound(#[source] UserRepoError),
-
-    /// Email is taken:
-    #[error("Email {0} Is In Use Already")]
+    #[error("Service: Database failure was encountered while trying to create new user.")]
     EmailTaken(#[source] UserRepoError),
 
-    /// Something about the payload didn' fit into business rules:
-    #[error("Validation Error: {0}")]
+    /// This user was not found.
+    #[error("Service: User {0} Not Found")]
+    UserNotFound(#[source] UserRepoError),
+
+    /// The provided Email or UserID was somehow malformed.
+    #[error("Service: Validation Failed with: {0}")]
     ValidationError(String),
 
-    // Internal Errors (everything else returned by lower layers that don't map to business
-    // errors).
+    /// !Business !Use-Case Errors
     #[error(transparent)]
-    UnexpectedError(#[from] OpaqueError),
+    Internal(#[from] OpaqueError),
 }
 
 impl Debug for ServiceError {
